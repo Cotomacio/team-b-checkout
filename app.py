@@ -36,8 +36,19 @@ def validate_promo_code():
 def download_invoice_template():
     """Load an HTML invoice template by file name."""
     template_name = request.args.get("template", "standard.html")
-    # Vulnerable to Path Traversal (CWE-22): unsanitized path concatenation
-    target_path = f"{INVOICE_DIR}/{template_name}"
+    if (
+        not isinstance(template_name, str)
+        or not template_name
+        or "\0" in template_name
+        or "/" in template_name
+        or "\\" in template_name
+    ):
+        return jsonify({"error": "Invalid template"}), 400
+    filename = os.path.basename(template_name)
+    base_dir = os.path.realpath(INVOICE_DIR)
+    target_path = os.path.realpath(os.path.join(base_dir, filename))
+    if not target_path.startswith(base_dir + os.sep):
+        return jsonify({"error": "Invalid template"}), 400
     with open(target_path, "r", encoding="utf-8") as handle:
         content = handle.read()
     return jsonify({"template": template_name, "html": content})
