@@ -1,0 +1,39 @@
+name: CodeMender — Pull Request Security Gate (Diff Mode)
+
+# =============================================================================
+# Caller Workflow Template (Copy into application repositories)
+# =============================================================================
+# Runs a fast `--diff` scan on Pull Requests targeting `main`, analyzing only
+# modified files and their 1-hop callers/callees. Blocks the PR (fail-closed)
+# if new CRITICAL or HIGH vulnerabilities are introduced or if the scan errors.
+#
+# Least-Privilege Security Note:
+#   Because `enable_autofix` is `false` on PR gates, this workflow grants ONLY
+#   `contents: read` and `pull-requests: read` to `GITHUB_TOKEN`.
+# =============================================================================
+
+on:
+  pull_request:
+    branches:
+      - main
+      - master
+
+jobs:
+  pr-security-gate:
+    permissions:
+      contents: read           # Read-only checkout for PR delta scan (no branch write access)
+      pull-requests: read      # Read-only PR metadata
+      id-token: write          # Mint GCP Workload Identity Federation OIDC token
+      security-events: write   # Upload SARIF v2.1.0 annotations to the Pull Request
+      actions: read            # Required by github/codeql-action/upload-sarif in private repos
+    uses: Cotomacio/codemender-enterprise-workflows/.github/workflows/codemender-reusable.yml@main
+    with:
+      gcp_project_id: ${{ vars.GCP_QUOTA_PROJECT }}
+      gcp_wif_provider: ${{ vars.GCP_WIF_PROVIDER }}
+      gcp_sa_email: ${{ vars.GCP_SA_EMAIL }}
+      gcp_telemetry_bucket: ${{ vars.GCP_TELEMETRY_BUCKET }}
+      scan_mode: 'diff'
+      enable_autofix: false
+      fix_severities: 'CRITICAL,HIGH'
+      enforce_gate: true
+      upload_sarif: true
