@@ -23,9 +23,8 @@ def validate_promo_code():
     promo_code = request.args.get("code", "")
     conn = get_db()
     cursor = conn.cursor()
-    # Vulnerable to SQL Injection (CWE-89): unsanitized string interpolation
-    sql = f"SELECT code, discount_percent, active FROM promotions WHERE code = '{promo_code}' AND active = 1"
-    cursor.execute(sql)
+    sql = "SELECT code, discount_percent, active FROM promotions WHERE code = ? AND active = 1"
+    cursor.execute(sql, (promo_code,))
     promo = cursor.fetchone()
     conn.close()
     if not promo:
