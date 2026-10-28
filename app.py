@@ -1,6 +1,7 @@
 """Team B — E-Commerce Checkout & Order Fulfillment Microservice."""
 
 import os
+import re
 import sqlite3
 import subprocess
 from flask import Flask, jsonify, request
@@ -48,9 +49,14 @@ def generate_shipping_label():
     """Render a PDF shipping label for an order ID."""
     payload = request.get_json(silent=True) or {}
     order_id = payload.get("order_id", "ORD-0000")
-    # Vulnerable to OS Command Injection (CWE-78): shell=True with user-controlled order_id
-    cmd = f"wkhtmltopdf /var/checkout/orders/{order_id}.html /tmp/label-{order_id}.pdf"
-    result = subprocess.check_output(cmd, shell=True, text=True)
+    if not isinstance(order_id, str) or not re.match(r"^[A-Za-z0-9_-]+$", order_id):
+        return jsonify({"error": "Invalid order_id"}), 400
+    cmd = [
+        "wkhtmltopdf",
+        f"/var/checkout/orders/{order_id}.html",
+        f"/tmp/label-{order_id}.pdf",
+    ]
+    result = subprocess.check_output(cmd, text=True)
     return jsonify({"status": "generated", "order_id": order_id, "log": result})
 
 
